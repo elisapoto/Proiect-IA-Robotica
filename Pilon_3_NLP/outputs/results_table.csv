@@ -1,0 +1,4 @@
+Algoritm,Acuratete,F1-Score,Timp (s)
+naive_bayes,0.8720,0.8720,0.03
+logistic_regression,0.8988,0.8988,0.20
+neural_network,0.8973,0.8973,306.34
