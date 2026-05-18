@@ -15,9 +15,10 @@ IMPORTANT: Inainte de prima rulare, antreneaza modelul NLP:
 
 import sys
 import os
+import numpy as np
+import matplotlib.pyplot as plt
 import streamlit as st
 
-# ─── Configurare pagina (TREBUIE sa fie primul apel Streamlit) ─────────────────
 st.set_page_config(
     page_title="Proiect IA – Echipa",
     page_icon="🤖",
@@ -25,7 +26,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# CSS global
 st.markdown("""
 <style>
     .main-header {
@@ -38,7 +38,6 @@ st.markdown("""
     }
     .main-header h1 { margin: 0; font-size: 2rem; }
     .main-header p  { margin: 0.3rem 0 0 0; opacity: 0.85; font-size: 1rem; }
-    
     .pilon-badge {
         display: inline-block;
         padding: 4px 12px;
@@ -50,14 +49,11 @@ st.markdown("""
     .badge-1 { background: #dbeafe; color: #1d4ed8; }
     .badge-2 { background: #dcfce7; color: #166534; }
     .badge-3 { background: #fef3c7; color: #92400e; }
-    
-    /* Ascunde meniu Streamlit */
     #MainMenu { visibility: hidden; }
     footer    { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
 
-# ─── Header ──────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="main-header">
     <h1>🤖 Proiect Inteligenta Artificiala</h1>
@@ -65,7 +61,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ─── Tabs ─────────────────────────────────────────────────────────────────────
 tab1, tab2, tab3 = st.tabs([
     "🤖 Tab 1 – Robotica RL",
     "🗺️ Tab 2 – Optimizare TSP",
@@ -76,110 +71,179 @@ tab1, tab2, tab3 = st.tabs([
 # TAB 1 – Robotica / RL (Fata 1)
 # ═══════════════════════════════════════════════════════════════════════════════
 with tab1:
-    st.markdown('<span class="pilon-badge badge-1">PILON 1 – ROBOTICA</span>', 
+    st.markdown('<span class="pilon-badge badge-1">PILON 1 – ROBOTICA</span>',
                 unsafe_allow_html=True)
     st.markdown("## 🤖 Robot Mobil in CoppeliaSim cu Reinforcement Learning")
-    
-    st.info(
-        "📋 **codul din `Pilon_1_RL/` aici.\n\n"
-        "Poti importa functii din folderul tau sau afisa grafice/rezultate direct."
-    )
-    
-    # Placeholder – Fata 1 va completa aceasta sectiune
+
+    pilon1_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Pilon_1_RL_Robotica")
+    if os.path.isdir(pilon1_dir) and pilon1_dir not in sys.path:
+        sys.path.insert(0, pilon1_dir)
+
     col1, col2 = st.columns(2)
-    
     with col1:
         st.markdown("### Configurare Antrenament RL")
-        algorithm  = st.selectbox("Algoritm RL", ["PPO", "DQN"])
-        n_steps    = st.slider("Numar pasi antrenament", 
-                               min_value=1000, max_value=100000, value=50000, step=1000)
-        start_btn  = st.button("▶️ Porneste Simularea", type="primary", 
-                               use_container_width=True)
+        algorithm = st.selectbox("Algoritm RL", ["PPO", "DQN"])
+        n_steps   = st.slider("Numar pasi antrenament",
+                              min_value=1000, max_value=100000, value=10000, step=1000)
+        start_btn = st.button("▶️ Porneste Antrenamentul", type="primary",
+                              use_container_width=True)
+
         if start_btn:
-            st.warning("⚠️ Conecteaza CoppeliaSim si adauga codul RL din Pilon_1_RL/ !")
-    
+            try:
+                from antrenament_robot import CoppeliaRobotEnv
+                from stable_baselines3 import PPO as PPO_SB3, DQN as DQN_SB3
+
+                st.info("⏳ Se conecteaza la CoppeliaSim si incepe antrenamentul...")
+                rewards_log = []
+
+                env = CoppeliaRobotEnv()
+
+                if algorithm == "PPO":
+                    model = PPO_SB3("MlpPolicy", env, verbose=0, learning_rate=0.0003)
+                else:
+                    model = DQN_SB3("MlpPolicy", env, verbose=0, learning_rate=0.0003)
+
+                progress = st.progress(0, text="Antrenament in curs...")
+                status   = st.empty()
+
+                CHUNK = max(1, n_steps // 20)
+                for i in range(20):
+                    model.learn(total_timesteps=CHUNK, reset_num_timesteps=(i == 0))
+                    pct = int((i + 1) * 5)
+                    progress.progress(pct, text=f"Antrenament... {pct}%")
+                    status.text(f"Pasi completati: {(i+1)*CHUNK} / {n_steps}")
+
+                model.save("creier_robot_mobil")
+                env.close()
+                progress.progress(100, text="Antrenament finalizat!")
+                st.success("✅ Antrenament finalizat! Modelul salvat ca `creier_robot_mobil.zip`")
+
+            except ImportError as e:
+                st.error(f"⚠️ Librarie lipsa: {e}\n\nInstaleza: pip install stable-baselines3 coppeliasim-zmqremoteapi-client")
+            except Exception as e:
+                st.error(f"❌ Eroare conectare CoppeliaSim: {e}\n\nAsigura-te ca CoppeliaSim e deschis si simularea e pornita (▶️)!")
+
     with col2:
         st.markdown("### Grafic Convergenta")
-        import numpy as np
-        import matplotlib.pyplot as plt
+        # Afiseaza grafic real daca exista date, altfel demo
+        log_path = os.path.join(pilon1_dir if os.path.isdir(pilon1_dir) else ".", "rewards_log.npy")
+        if os.path.exists(log_path):
+            rewards = np.load(log_path)
+            x = np.arange(len(rewards))
+            title = f"Convergenta {algorithm} (real)"
+        else:
+            x = np.linspace(0, n_steps, 500)
+            rewards = -80 * np.exp(-x / 15000) + 80 + np.random.normal(0, 5, 500)
+            title = f"Convergenta {algorithm} (demo)"
 
-        # Grafic demo
         fig, ax = plt.subplots(figsize=(6, 3))
-        x = np.linspace(0, 50000, 500)
-        y = -80 * np.exp(-x / 15000) + 80 + np.random.normal(0, 5, 500)
-        ax.plot(x, y, color="#4C72B0", alpha=0.8, linewidth=1.5)
-        ax.fill_between(x, y - 10, y + 10, alpha=0.1, color="#4C72B0")
+        ax.plot(x, rewards, color="#4C72B0", alpha=0.8, linewidth=1.5)
         ax.set_xlabel("Pasi antrenament")
         ax.set_ylabel("Reward total per episod")
-        ax.set_title(f"Convergenta {algorithm} (demo)")
+        ax.set_title(title)
         ax.grid(alpha=0.3)
         plt.tight_layout()
         st.pyplot(fig, use_container_width=True)
         plt.close(fig)
-        st.caption("*Grafic de demonstratie – va fi inlocuit cu date reale din CoppeliaSim*")
+        if not os.path.exists(log_path):
+            st.caption("*Grafic de demonstratie – va fi inlocuit cu date reale dupa antrenament*")
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# TAB 2 – Optimizare TSP (Fata 2)
+# ═══════════════════════════════════════════════════════════════════════════════
 with tab2:
-    st.markdown('<span class="pilon-badge badge-2">PILON 2 – OPTIMIZARE</span>', 
+    st.markdown('<span class="pilon-badge badge-2">PILON 2 – OPTIMIZARE</span>',
                 unsafe_allow_html=True)
-    st.markdown("## 🗺️ Problema Comis-Voiajorului (TSP)")
-    
-    st.info(
-        "📋 ** codul din `Pilon_2_Optim/` aici.\n\n"
-        "Importa algoritmii tai (BKT, HC, SA, GA, NN) si afiseaza vizualizarile."
-    )
 
-    col1, col2 = st.columns([1, 2])
-    
-    with col1:
-        st.markdown("### Configurare TSP")
-        n_cities   = st.slider("Numar orase", min_value=5, max_value=20, value=12)
-        tsp_algo   = st.selectbox("Algoritm", 
-                                  ["Genetic Algorithm (GA)", 
-                                   "Simulated Annealing (SA)",
-                                   "Hill Climbing (HC)",
-                                   "Backtracking (BKT)",
-                                   "Neural Network (NN)"])
-        solve_btn  = st.button("🔍 Rezolva TSP", type="primary", 
-                               use_container_width=True)
-        if solve_btn:
-            st.warning("⚠️ Adauga algoritmii TSP din Pilon_2_Optim/ !")
-    
-    with col2:
-        st.markdown("### Vizualizare Ruta Optima")
-        import numpy as np, matplotlib.pyplot as plt
-        
-        rng = np.random.RandomState(42)
-        x_cities = rng.rand(n_cities)
-        y_cities = rng.rand(n_cities)
-        route_idx = list(range(n_cities)) + [0]
-        
-        fig, ax = plt.subplots(figsize=(6, 5))
-        ax.plot(x_cities[route_idx], y_cities[route_idx], 
-                "b-o", linewidth=1.5, markersize=8, alpha=0.7)
-        for i, (xi, yi) in enumerate(zip(x_cities, y_cities)):
-            ax.annotate(f" C{i}", (xi, yi), fontsize=8)
-        ax.set_title(f"Ruta TSP – {n_cities} orase (demo)")
-        ax.set_xlabel("X")
-        ax.set_ylabel("Y")
-        ax.grid(alpha=0.3)
-        plt.tight_layout()
-        st.pyplot(fig, use_container_width=True)
-        plt.close(fig)
-        st.caption("*Ruta aleatoare de demonstratie – va fi inlocuita cu solutia algoritmului*")
+    pilon2_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Pilon_2_Optim")
+    if os.path.isdir(pilon2_dir) and pilon2_dir not in sys.path:
+        sys.path.insert(0, pilon2_dir)
+
+    try:
+        from tsp_solvers import TSPSolver
+
+        st.markdown("## 🧭 Traveling Salesman Problem - AI Optimizers")
+
+        n_cities = st.slider("Selectează numărul de orașe", 5, 25, 10, key="tsp_slider")
+        np.random.seed(42)
+        cities = np.random.rand(n_cities, 2) * 100
+        solver = TSPSolver(cities)
+
+        def plot_path(cities, path, title):
+            fig, ax = plt.subplots()
+            for i in range(len(path)):
+                start = cities[path[i]]
+                end   = cities[path[(i + 1) % len(path)]]
+                ax.plot([start[0], end[0]], [start[1], end[1]], 'b-')
+            ax.scatter(cities[:, 0], cities[:, 1], c='red')
+            for i, (x, y) in enumerate(cities):
+                ax.text(x, y, str(i))
+            ax.set_title(title)
+            return fig
+
+        algo = st.selectbox(
+            "Alege algoritmul",
+            ["Nearest Neighbor", "Hill Climbing", "Simulated Annealing",
+             "Genetic Algorithm", "Backtracking"],
+            key="tsp_algo"
+        )
+
+        if st.button("🚀 Rulează algoritmul ales"):
+            path, cost = None, None
+            if algo == "Nearest Neighbor":
+                path, cost = solver.solve_nn()
+            elif algo == "Hill Climbing":
+                path, cost = solver.solve_hc()
+            elif algo == "Simulated Annealing":
+                path, cost = solver.solve_sa()
+            elif algo == "Genetic Algorithm":
+                path, cost = solver.solve_ga()
+            elif algo == "Backtracking":
+                if n_cities > 10:
+                    st.error("⚠️ Backtracking merge doar până la 10 orașe!")
+                else:
+                    path, cost = solver.solve_bkt()
+            if path is not None:
+                st.subheader(f"Cost total: {cost:.2f}")
+                st.pyplot(plot_path(cities, path, algo))
+
+        if st.button("📊 Compară toți algoritmii"):
+            results = {}
+            with st.spinner("Rulez algoritmii..."):
+                results["NN"] = solver.solve_nn()[1]
+                results["HC"] = solver.solve_hc()[1]
+                results["SA"] = solver.solve_sa()[1]
+                results["GA"] = solver.solve_ga()[1]
+                if n_cities <= 10:
+                    results["BKT"] = solver.solve_bkt()[1]
+            st.subheader("📊 Comparare costuri")
+            st.table(results)
+            fig, ax = plt.subplots()
+            ax.bar(results.keys(), results.values())
+            ax.set_title("Comparare algoritmi TSP")
+            st.pyplot(fig)
+
+    except ImportError:
+        st.warning(
+            "⚠️ Fisierul `tsp_solvers.py` nu a fost gasit in `Pilon_2_Optim/`.\n\n"
+            "Pune fisierul `tsp_solvers.py` al colegei tale in folderul `Pilon_2_Optim/`."
+        )
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# TAB 3 – NLP Sentiment Analysis (Fata 3)
+# ═══════════════════════════════════════════════════════════════════════════════
 with tab3:
-    st.markdown('<span class="pilon-badge badge-3">PILON 3 – NLP</span>', 
+    st.markdown('<span class="pilon-badge badge-3">PILON 3 – NLP</span>',
                 unsafe_allow_html=True)
-    
-    # Adauga folderul Pilon_3_NLP in path
+
     pilon3_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Pilon_3_NLP")
     if os.path.isdir(pilon3_dir) and pilon3_dir not in sys.path:
         sys.path.insert(0, pilon3_dir)
-    
+
     try:
-        from Pilon_3_NLP.app_tab3 import render_tab3
+        from app_tab3 import render_tab3
         render_tab3()
     except ImportError as e:
         st.error(
