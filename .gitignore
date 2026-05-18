@@ -1,0 +1,23 @@
+# Cache-ul generat automat de Python (nu avem nevoie de el pe Git)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Medii virtuale (dacă vreuna dintre voi folosește venv)
+.venv/
+venv/
+env/
+ENV/
+
+# Fișiere create de editoarele de cod (VS Code sau PyCharm)
+.vscode/
+.idea/
+
+# Fișiere temporare de sistem și loguri
+*.log
+.DS_Store
+Thumbs.db
+
+# Fișiere temporare sau backup-uri din CoppeliaSim
+*.bak
