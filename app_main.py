@@ -81,8 +81,7 @@ with tab1:
     st.markdown("## 🤖 Robot Mobil in CoppeliaSim cu Reinforcement Learning")
     
     st.info(
-        "📋 **Instructiuni pentru Fata 1:** Aceasta sectiune este rezervata "
-        "componentei tale. Adauga codul din `Pilon_1_RL/` aici.\n\n"
+        "📋 **codul din `Pilon_1_RL/` aici.\n\n"
         "Poti importa functii din folderul tau sau afisa grafice/rezultate direct."
     )
     
@@ -126,8 +125,7 @@ with tab2:
     st.markdown("## 🗺️ Problema Comis-Voiajorului (TSP)")
     
     st.info(
-        "📋 **Instructiuni pentru Fata 2:** Aceasta sectiune este rezervata "
-        "componentei tale. Adauga codul din `Pilon_2_Optim/` aici.\n\n"
+        "📋 ** codul din `Pilon_2_Optim/` aici.\n\n"
         "Importa algoritmii tai (BKT, HC, SA, GA, NN) si afiseaza vizualizarile."
     )
 
@@ -181,7 +179,7 @@ with tab3:
         sys.path.insert(0, pilon3_dir)
     
     try:
-        from app_tab3 import render_tab3
+        from Pilon_3_NLP.app_tab3 import render_tab3
         render_tab3()
     except ImportError as e:
         st.error(
